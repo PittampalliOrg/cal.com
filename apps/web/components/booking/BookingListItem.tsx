@@ -2,12 +2,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 
-import type { EventLocationType, getEventLocationValue } from "@calcom/app-store/locations";
-import {
-  getEventLocationType,
-  getSuccessPageLocationMessage,
-  guessEventLocationType,
-} from "@calcom/app-store/locations";
+import type { getEventLocationValue } from "@calcom/app-store/locations";
+import { getSuccessPageLocationMessage, guessEventLocationType } from "@calcom/app-store/locations";
 import dayjs from "@calcom/dayjs";
 // TODO: Use browser locale, implement Intl in Dayjs maybe?
 import "@calcom/dayjs/locales";
@@ -274,8 +270,10 @@ function BookingListItem(booking: BookingItemProps) {
     },
     onError: (e) => {
       let message;
-      if (e.data.code === "UNAUTHORIZED") {
-        message = t("unauthorized");
+      if (e.data?.code === "UNAUTHORIZED") {
+        message = t("you_are_unauthorized_to_make_this_change_to_the_booking");
+      } else if (e.data?.code === "BAD_REQUEST") {
+        message = e.message;
       } else {
         message = t("location_update_failed");
       }
@@ -283,18 +281,22 @@ function BookingListItem(booking: BookingItemProps) {
     },
   });
 
-  const saveLocation = (
-    newLocationType: EventLocationType["type"],
-    details: {
-      [key: string]: string;
+  const saveLocation = async ({
+    newLocation,
+    credentialId,
+  }: {
+    newLocation: string;
+    credentialId: number | null;
+  }) => {
+    try {
+      await setLocationMutation.mutateAsync({
+        bookingId: booking.id,
+        newLocation,
+        credentialId,
+      });
+    } catch {
+      // Errors are shown through the mutation onError handler
     }
-  ) => {
-    let newLocation = newLocationType as string;
-    const eventLocationType = getEventLocationType(newLocationType);
-    if (eventLocationType?.organizerInputType) {
-      newLocation = details[Object.keys(details)[0]];
-    }
-    setLocationMutation.mutate({ bookingId: booking.id, newLocation, details });
   };
 
   // Getting accepted recurring dates to show
